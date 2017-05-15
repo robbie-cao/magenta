@@ -27,6 +27,7 @@
 ## Memory and address space
 + [vmo](objects/vm_object.md)
 + [vmar](objects/vm_address_region.md)
++ [bus_transaction_initiator](objects/bus_transaction_initiator.md)
 
 ## Resources
 + [resource](objects/resource.md)

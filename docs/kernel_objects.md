@@ -40,6 +40,7 @@ Magenta actively manages the following resources:
 + [Interrupt request](objects/interrupt_request.md)
 + [Resource](objects/resource.md)
 + [Log](objects/log.md)
++ [Bus Transaction Initiator](objects/bus_transaction_initiator.md)
 
 ## Kernel Object and LK
 Some kernel objects wrap one or more LK-level constructs. For example the
