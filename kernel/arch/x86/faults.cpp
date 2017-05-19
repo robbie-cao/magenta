@@ -27,6 +27,9 @@
 #include <magenta/exception.h>
 #endif
 
+// TODO(teisenbe): Remove this
+extern "C" void iommu_fault_handler(void);
+
 static void dump_fault_frame(x86_iframe_t *frame)
 {
     dprintf(CRITICAL, " CS:  %#18" PRIx64 " RIP: %#18" PRIx64 " EFL: %#18" PRIx64 " CR2: %#18lx\n",
@@ -422,6 +425,13 @@ void x86_exception_handler(x86_iframe_t *frame)
         }
         case X86_INT_IPI_HALT: {
             x86_ipi_halt_handler();
+            /* no return */
+            break;
+        }
+        case X86_INT_IOMMU_FAULT: {
+            // TODO(teisenbe): Handle this fault at the platform level...
+            iommu_fault_handler();
+            apic_issue_eoi();
             /* no return */
             break;
         }

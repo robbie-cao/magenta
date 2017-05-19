@@ -19,6 +19,9 @@
 #include <magenta/process_dispatcher.h>
 #include <magenta/vm_object_dispatcher.h>
 
+// TODO(teisenbe): Remove this
+#include <dev/iommu/intel.h>
+
 // Machinery to walk over a job tree and run a callback on each process.
 template <typename ProcessCallbackType>
 class ProcessWalker final : public JobEnumerator {
@@ -685,6 +688,7 @@ static int cmd_diagnostics(int argc, const cmd_args* argv, uint32_t flags) {
         printf("%s asd  <pid>|kernel : dump process/kernel address space\n",
                argv[0].str);
         printf("%s htinfo            : handle table info\n", argv[0].str);
+        printf("%s iommu\n", argv[0].str);
         return -1;
     }
 
@@ -744,6 +748,13 @@ static int cmd_diagnostics(int argc, const cmd_args* argv, uint32_t flags) {
         if (argc != 2)
             goto usage;
         DumpHandleTable();
+    } else if (strcmp(argv[1].str, "iommu") == 0) {
+        // TODO(teisenbe): Remove this once the resource side of IOMMUs becomes real.
+        auto iommu = IntelIommu::Create(0, 0xfed90000);
+        ASSERT(iommu);
+        dev_vaddr_t vaddr;
+        status_t status = iommu->Map(0x2 << 3, 0x8c000000, 1ull<<25, IOMMU_FLAG_PERM_WRITE | IOMMU_FLAG_PERM_READ, &vaddr);
+        DEBUG_ASSERT(status == NO_ERROR);
     } else {
         printf("unrecognized subcommand '%s'\n", argv[1].str);
         goto usage;

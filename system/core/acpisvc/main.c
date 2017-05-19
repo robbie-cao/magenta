@@ -20,6 +20,7 @@
 
 static ACPI_STATUS set_apic_irq_mode(void);
 static ACPI_STATUS init(void);
+static mx_status_t find_iommus(void);
 
 mx_handle_t root_resource_handle;
 
@@ -80,6 +81,11 @@ int main(int argc, char** argv) {
     mx_status = install_powerbtn_handlers();
     if (mx_status != MX_OK) {
         printf("Failed to install powerbtn handler\n");
+    }
+
+    mx_status = find_iommus();
+    if (mx_status != NO_ERROR) {
+        printf("Failed to publish iommus\n");
     }
 
     mx_status = pci_report_current_resources(root_resource_handle);
@@ -154,4 +160,111 @@ static ACPI_STATUS set_apic_irq_mode(void) {
         .Pointer = &selector,
     };
     return AcpiEvaluateObject(NULL, (char*)"\\_PIC", &params, NULL);
+}
+
+mx_status_t find_iommus(void) {
+    ACPI_TABLE_HEADER* table = NULL;
+    ACPI_STATUS status = AcpiGetTable((char*)ACPI_SIG_DMAR, 1, &table);
+    if (status != AE_OK) {
+        printf("could not find DMAR\n");
+        return ERR_NOT_FOUND;
+    }
+    ACPI_TABLE_DMAR* dmar = (ACPI_TABLE_DMAR*)table;
+    uintptr_t records_start = ((uintptr_t)dmar) + sizeof(*dmar);
+    uintptr_t records_end = ((uintptr_t)dmar) + dmar->Header.Length;
+    if (records_start >= records_end) {
+        printf("DMAR wraps around address space\n");
+        return ERR_IO_DATA_INTEGRITY;
+    }
+    // Shouldn't be too many records
+    if (dmar->Header.Length > 4096) {
+        printf("DMAR suspiciously long: %u\n", dmar->Header.Length);
+        return ERR_IO_DATA_INTEGRITY;
+    }
+
+    uintptr_t addr;
+    for (addr = records_start; addr < records_end;) {
+        ACPI_DMAR_HEADER* record_hdr = (ACPI_DMAR_HEADER*)addr;
+        printf("DMAR record: %d\n", record_hdr->Type);
+        switch (record_hdr->Type) {
+            case ACPI_DMAR_TYPE_HARDWARE_UNIT: {
+                ACPI_DMAR_HARDWARE_UNIT* rec = (ACPI_DMAR_HARDWARE_UNIT*)record_hdr;
+
+                printf("DMAR Hardware Unit: %u %#llx %#x\n", rec->Segment, rec->Address, rec->Flags);
+                size_t num_scopes = 0;
+                uintptr_t scope;
+                for (scope = addr + 16; scope < addr + record_hdr->Length; ) {
+                    ACPI_DMAR_DEVICE_SCOPE* s = (ACPI_DMAR_DEVICE_SCOPE*)scope;
+                    printf("  DMAR Scope: %u, bus %u\n", s->EntryType, s->Bus);
+                    for (ssize_t i = 0; i < (s->Length - 6) / 2; ++i) {
+                        uint16_t v = *(uint16_t*)(scope + 6 + 2 * i);
+                        printf("    Path %ld: %02x.%02x\n", i, v & 0xffu, (uint16_t)(v >> 8));
+                    }
+                    scope += s->Length;
+                    num_scopes++;
+                }
+
+                mx_handle_t iommu_handle;
+                const size_t num_records = 3 + num_scopes;
+                mx_rrec_t* records = calloc(num_records, sizeof(mx_rrec_t));
+                if (!records) {
+                    printf("Failed to allocate records\n");
+                    return ERR_NO_MEMORY;
+                }
+                records[0].self.type = MX_RREC_SELF;
+                records[0].self.subtype = MX_RREC_SELF_GENERIC;
+                records[0].self.options = 0;
+                records[0].self.record_count = num_records;
+                strncpy(records[0].self.name, "IOMMU", sizeof(records[0].self.name));
+
+                records[1].mmio.type = MX_RREC_MMIO;
+                records[1].mmio.subtype = 0;
+                records[1].mmio.options = 0;
+                records[1].mmio.phys_base = rec->Address;
+                records[1].mmio.phys_size = 4096;
+
+                records[2].data.type = MX_RREC_DATA;
+                records[2].data.subtype = MX_RREC_DATA_U32;
+                records[2].data.options = 2; /* count */
+                records[2].data.u32[0] = rec->Segment;
+                records[2].data.u32[1] = rec->Flags & ACPI_DMAR_INCLUDE_ALL;
+
+                size_t scope_index = 0;
+                for (scope = addr + 16; scope < addr + record_hdr->Length && scope_index < num_scopes; ++scope_index) {
+                    ACPI_DMAR_DEVICE_SCOPE* s = (ACPI_DMAR_DEVICE_SCOPE*)scope;
+                    mx_rrec_t* rec = &records[3 + scope_index];
+
+                    rec->data.type = MX_RREC_DATA;
+                    rec->data.subtype = MX_RREC_DATA_U8;
+                    rec->data.options = 1 + (s->Length - 6) / 2; /* count */
+                    // TOOD: Check that options isn't too big
+                    rec->data.u8[0] = s->Bus;
+                    for (ssize_t i = 0; i < (s->Length - 6) / 2; ++i) {
+                        uint16_t v = *(uint16_t*)(scope + 6 + 2 * i);
+                        const uint8_t dev = v >> 8;
+                        const uint8_t func = v & 0x7;
+                        rec->data.u8[1 + i] = (dev << 3) | func;
+                    }
+                    scope += s->Length;
+                }
+
+                mx_status_t mx_status = mx_resource_create(root_resource_handle, records, num_records,
+                                                           &iommu_handle);
+                free(records);
+                if (mx_status != NO_ERROR) {
+                    printf("Failed to create\n");
+                    return mx_status;
+                }
+                mx_handle_close(iommu_handle);
+                break;
+            }
+        }
+
+        addr += record_hdr->Length;
+    }
+    if (addr != records_end) {
+        return ERR_IO_DATA_INTEGRITY;
+    }
+
+    return NO_ERROR;
 }
