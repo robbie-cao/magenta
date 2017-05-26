@@ -10,6 +10,7 @@
 #include <trace.h>
 
 #include <dev/iommu/dummy.h>
+#include <dev/iommu/intel.h>
 #include <kernel/auto_lock.h>
 #include <kernel/cmdline.h>
 #include <kernel/mutex.h>
