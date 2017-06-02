@@ -176,6 +176,7 @@ mx_status_t sys_pci_init(mx_handle_t handle, user_ptr<const mx_pci_init_arg_t> _
     }
     // TODO(teisenbe): For now assume there is only one ECAM
     if (win_count != 1) {
+        printf("No ECAM window found, it's probably PCI Legacy\n");
         return ERR_INVALID_ARGS;
     }
     if (arg->ecam_windows[0].bus_start != 0) {
