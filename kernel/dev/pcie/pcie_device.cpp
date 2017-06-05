@@ -160,9 +160,6 @@ status_t PcieDevice::InitLocked(PcieUpstreamNode& upstream) {
             TRACEF("Failed to allocate VMO for config of device %02x:%02x:%01x!\n", bus_id_, dev_id_, func_id_);
             return ERR_NO_MEMORY;
         }
-
-        // Unlike BARs, this should always be treated like device memory
-        cfg_vmo_->SetMappingCachePolicy(ARCH_MMU_FLAG_UNCACHED_DEVICE);
     }
 
     return NO_ERROR;
