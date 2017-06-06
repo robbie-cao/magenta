@@ -115,7 +115,7 @@ static mx_status_t kaveri_disp_bind(void* ctx, mx_device_t* dev, void** cookie) 
 
     // map framebuffer window
     // seems to be bar 0
-    status = pci->map_resource(dev, PCI_RESOURCE_BAR_5, MX_CACHE_POLICY_WRITE_COMBINING,
+    status = pci->map_resource(dev, PCI_RESOURCE_BAR_0, MX_CACHE_POLICY_WRITE_COMBINING,
                            &device->framebuffer,
                            &device->framebuffer_size,
                            &device->framebuffer_handle);
