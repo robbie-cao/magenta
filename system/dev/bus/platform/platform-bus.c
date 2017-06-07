@@ -24,6 +24,7 @@
 typedef struct {
     mx_device_t* mxdev;
     list_node_t children;
+    mx_handle_t resource;   // root resource for platform bus
 } platform_bus_t;
 
 typedef struct {
@@ -31,7 +32,7 @@ typedef struct {
     platform_bus_t* bus;
     uint32_t proto_id;
     void* protocol;
-    mdi_node_ref_t mdi_node;
+    mx_handle_t resource;   // root resource for this device
     list_node_t node;
     mx_device_prop_t props[3];
 } platform_dev_t;
@@ -79,6 +80,83 @@ static platform_device_protocol_t platform_dev_proto_ops = {
     .find_protocol = platform_dev_find_protocol,
 };
 
+static mx_status_t platform_bus_add_mmio(mdi_node_ref_t* node, mx_handle_t parent_resource) {
+    const char* name = NULL;
+    uint64_t base = 0;
+    uint64_t length = 0;
+    mdi_node_ref_t  child;
+    mdi_each_child(node, &child) {
+        switch (mdi_id(&child)) {
+        case MDI_NAME:
+            name = mdi_node_string(&child);
+            break;
+        case MDI_BASE_PHYS:
+            mdi_node_uint64(&child, &base);
+            break;
+        case MDI_LENGTH:
+            mdi_node_uint64(&child, &length);
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (!name || !base || !length) {
+        printf("platform_bus_add_mmio: missing name, base or length\n");
+        return ERR_INVALID_ARGS;
+    }
+
+    mx_handle_t resource = MX_HANDLE_INVALID;
+    mx_rrec_t records[2] = { { 0 }, { 0 } };
+    records[0].self.type = MX_RREC_SELF;
+    records[0].self.subtype = MX_RREC_SELF_GENERIC;
+    records[0].self.record_count = 2;
+   records[1].mmio.type = MX_RREC_MMIO;
+    records[1].mmio.phys_base = base;
+    records[1].mmio.phys_size = length;
+    strlcpy(records[0].self.name, name, sizeof(records[0].self.name));
+    mx_status_t status = mx_resource_create(parent_resource, records, countof(records),
+                                   &resource);
+    mx_handle_close(resource);
+    return status;
+}
+
+static mx_status_t platform_bus_add_irq(mdi_node_ref_t* node, mx_handle_t parent_resource) {
+    const char* name = NULL;
+    uint32_t irq = UINT32_MAX;
+    mdi_node_ref_t  child;
+    mdi_each_child(node, &child) {
+        switch (mdi_id(&child)) {
+        case MDI_NAME:
+            name = mdi_node_string(&child);
+            break;
+        case MDI_IRQ:
+            mdi_node_uint32(&child, &irq);
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (!name || irq == UINT32_MAX) {
+        printf("platform_bus_add_mmio: missing name or irq\n");
+        return ERR_INVALID_ARGS;
+    }
+
+    mx_handle_t resource = MX_HANDLE_INVALID;
+    mx_rrec_t records[2] = { { 0 }, { 0 } };
+    records[0].self.type = MX_RREC_SELF;
+    records[0].self.subtype = MX_RREC_SELF_GENERIC;
+    records[0].self.record_count = 2;
+   records[1].irq.type = MX_RREC_IRQ;
+    records[1].irq.irq_base = irq;
+    strlcpy(records[0].self.name, name, sizeof(records[0].self.name));
+    mx_status_t status = mx_resource_create(parent_resource, records, countof(records),
+                                   &resource);
+    mx_handle_close(resource);
+    return status;
+}
+
 static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_ref_t* node) {
     mdi_node_ref_t  device_node;
     mdi_each_child(node, &device_node) {
@@ -91,6 +169,8 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
         uint32_t did = 0;
         const char* name = NULL;
         mdi_node_ref_t  node;
+        mdi_node_ref_t  resources_node;
+        bool got_resources = false;
         mdi_each_child(&device_node, &node) {
             switch (mdi_id(&node)) {
             case MDI_NAME:
@@ -104,6 +184,10 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
                 break;
             case MDI_PLATFORM_DEVICE_DID:
                 mdi_node_uint32(&node, &did);
+                break;
+            case MDI_PLATFORM_DEVICE_RESOURCES:
+                memcpy(&resources_node, &node, sizeof(resources_node));
+                got_resources = true;
                 break;
             default:
                 break;
@@ -120,7 +204,35 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
             return MX_ERR_NO_MEMORY;
         }
         dev->bus = bus;
-        memcpy(&dev->mdi_node, &device_node, sizeof(dev->mdi_node));
+
+        mx_rrec_t records[1] = { { 0 } };
+        records[0].self.type = MX_RREC_SELF;
+        records[0].self.subtype = MX_RREC_SELF_GENERIC;
+        records[0].self.options = 0;
+        records[0].self.record_count = 1;
+        strlcpy(records[0].self.name, name, sizeof(records[0].self.name));
+        mx_status_t status = mx_resource_create(bus->resource, records, countof(records),
+                                       &dev->resource);
+        if (status != NO_ERROR) {
+            free(dev);
+            return status;
+        }
+
+        // create sub-resources for the device
+        if (got_resources) {
+            mdi_each_child(&resources_node, &node) {
+                switch (mdi_id(&node)) {
+                case MDI_PLATFORM_DEVICE_MMIO:
+                    platform_bus_add_mmio(&node, dev->resource);
+                    break;
+                case MDI_PLATFORM_DEVICE_IRQ:
+                    platform_bus_add_irq(&node, dev->resource);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
 
         mx_device_prop_t props[] = {
             {BIND_PLATFORM_DEV_VID, 0, vid},
@@ -147,10 +259,12 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
             .prop_count = countof(dev->props),
         };
 
-        mx_status_t status = device_add(bus->mxdev, &args, &dev->mxdev);
+        status = device_add(bus->mxdev, &args, &dev->mxdev);
         if (status != MX_OK) {
             printf("platform_bus_publish_devices: failed to create device for %u:%u:%u\n",
                    vid, pid, did);
+            mx_handle_close(dev->resource);
+            free(dev);
             return status;
         }
         list_add_tail(&bus->children, &dev->node);
@@ -159,7 +273,6 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
     return MX_OK;
 }
 
-
 static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cookie) {
     mx_handle_t mdi_handle = device_get_resource(parent);
     if (mdi_handle == MX_HANDLE_INVALID) {
@@ -167,6 +280,7 @@ static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cook
         return MX_ERR_NOT_SUPPORTED;
     }
 
+    platform_bus_t* bus = NULL;
     void* addr = NULL;
     size_t size;
     mx_status_t status = mx_vmo_get_size(mdi_handle, &size);
@@ -194,12 +308,22 @@ static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cook
         goto fail;
     }
 
-    platform_bus_t* bus = calloc(1, sizeof(platform_bus_t));
+    bus = calloc(1, sizeof(platform_bus_t));
     if (!bus) {
         status = MX_ERR_NO_MEMORY;
         goto fail;
     }
     list_initialize(&bus->children);
+
+    // TODO(voydanoff) Later this resource will be passed to us from the devmgr
+    mx_rrec_t records[1] = { { 0 } };
+    records[0].self.type = MX_RREC_SELF;
+    records[0].self.subtype = MX_RREC_SELF_GENERIC;
+    records[0].self.options = 0;
+    records[0].self.record_count = 1;
+    strlcpy(records[0].self.name, "PLATFORM-BUS", sizeof(records[0].self.name));
+    status = mx_resource_create(get_root_resource(), records, countof(records),
+                                   &bus->resource);
 
     device_add_args_t add_args = {
         .version = DEVICE_ADD_ARGS_VERSION,
@@ -216,6 +340,10 @@ static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cook
     return platform_bus_publish_devices(bus, &bus_node);
 
 fail:
+    if (bus) {
+        mx_handle_close(bus->resource);
+        free(bus);
+    }
     if (addr) {
         mx_vmar_unmap(mx_vmar_root_self(), (uintptr_t)addr, size);
     }

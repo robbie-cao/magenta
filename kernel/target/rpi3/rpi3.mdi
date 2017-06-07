@@ -46,6 +46,17 @@ platform = {
         vid = 0xBC
         pid = 1
         did = 5
+        resources = {
+            mmio = {
+                name = "usb-regs"
+                base-phys = 0x3f980000
+                length = 0x1000
+            }
+            irq = {
+                name = "usb"
+                irq = 9
+            }
+        }
     }
     device = {
         name = "bcm-display"
