@@ -14,4 +14,10 @@ class IntelIommu {
 public:
     static status_t Create(const mx_iommu_desc_intel_t* desc, uint32_t desc_len,
                            mxtl::RefPtr<Iommu>* out);
+    static status_t CreateFromResource(mxtl::RefPtr<ResourceDispatcher> rsrc,
+                                       mxtl::RefPtr<Iommu>* out);
+
+    static void RegisterDriver(unsigned int);
+private:
+    static IommuDriver drv_;
 };

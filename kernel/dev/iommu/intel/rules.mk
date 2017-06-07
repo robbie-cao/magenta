@@ -17,6 +17,7 @@ MODULE_SRCS := \
 MODULE_DEPS := \
 	kernel/lib/bitmap \
 	kernel/lib/hwreg \
+	kernel/lib/magenta \
 	kernel/lib/mxtl \
 
 include make/module.mk

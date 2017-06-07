@@ -188,9 +188,9 @@ mx_status_t find_iommus(void) {
         printf("DMAR record: %d\n", record_hdr->Type);
         switch (record_hdr->Type) {
             case ACPI_DMAR_TYPE_HARDWARE_UNIT: {
-                ACPI_DMAR_HARDWARE_UNIT* rec = (ACPI_DMAR_HARDWARE_UNIT*)record_hdr;
+                ACPI_DMAR_HARDWARE_UNIT* dmar_rec = (ACPI_DMAR_HARDWARE_UNIT*)record_hdr;
 
-                printf("DMAR Hardware Unit: %u %#llx %#x\n", rec->Segment, rec->Address, rec->Flags);
+                printf("DMAR Hardware Unit: %u %#llx %#x\n", dmar_rec->Segment, dmar_rec->Address, dmar_rec->Flags);
                 size_t num_scopes = 0;
                 uintptr_t scope;
                 for (scope = addr + 16; scope < addr + record_hdr->Length; ) {
@@ -212,7 +212,7 @@ mx_status_t find_iommus(void) {
                     return ERR_NO_MEMORY;
                 }
                 records[0].self.type = MX_RREC_SELF;
-                records[0].self.subtype = MX_RREC_SELF_GENERIC;
+                records[0].self.subtype = MX_RREC_SELF_IOMMU;
                 records[0].self.options = 0;
                 records[0].self.record_count = num_records;
                 strncpy(records[0].self.name, "IOMMU", sizeof(records[0].self.name));
@@ -220,14 +220,14 @@ mx_status_t find_iommus(void) {
                 records[1].mmio.type = MX_RREC_MMIO;
                 records[1].mmio.subtype = 0;
                 records[1].mmio.options = 0;
-                records[1].mmio.phys_base = rec->Address;
+                records[1].mmio.phys_base = dmar_rec->Address;
                 records[1].mmio.phys_size = 4096;
 
                 records[2].data.type = MX_RREC_DATA;
                 records[2].data.subtype = MX_RREC_DATA_U32;
                 records[2].data.options = 2; /* count */
-                records[2].data.u32[0] = rec->Segment;
-                records[2].data.u32[1] = rec->Flags & ACPI_DMAR_INCLUDE_ALL;
+                records[2].data.u32[0] = dmar_rec->Segment;
+                records[2].data.u32[1] = dmar_rec->Flags & ACPI_DMAR_INCLUDE_ALL;
 
                 size_t scope_index = 0;
                 for (scope = addr + 16; scope < addr + record_hdr->Length && scope_index < num_scopes; ++scope_index) {
@@ -255,6 +255,26 @@ mx_status_t find_iommus(void) {
                     printf("Failed to create\n");
                     return mx_status;
                 }
+
+#if 0
+                if (dmar_rec->Address == 0xfed90000) {
+                    mx_handle_t bti;
+                    mx_status = mx_bti_create(iommu_handle, 2, &bti);
+                    if (mx_status != NO_ERROR) {
+                        printf("Failed to create bti\n");
+                        return mx_status;
+                    }
+
+                    uint64_t addrs[];
+                    uint32_t addrs_len;
+                    uint32_t actual_addrs_len;
+                    mx_status = mx_bti_pin(bti, vmo, offset, size, MX_VM_FLAG_PERM_READ | MX_VM_FLAG_PERM_WRITE, addrs, addrs_len, &actual_addrs_len);
+                    if (mx_status != NO_ERROR) {
+                        return mx_status;
+                    }
+                    // Leak BTI
+                }
+#endif
                 mx_handle_close(iommu_handle);
                 break;
             }
