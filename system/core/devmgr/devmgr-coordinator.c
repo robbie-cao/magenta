@@ -185,6 +185,17 @@ static device_t platform_device = {
     .refcount = 1,
 };
 
+static device_t acpi_bus_device = {
+    .flags = DEV_CTX_IMMORTAL | DEV_CTX_BUSDEV,
+    .protocol_id = MX_PROTOCOL_ACPI_BUS,
+    .name = "acpi",
+    .libname = "",
+    .args = "acpi,,",
+    .children = LIST_INITIAL_VALUE(acpi_bus_device.children),
+    .pending = LIST_INITIAL_VALUE(acpi_bus_device.pending),
+    .refcount = 1,
+};
+
 device_t socket_device = {
     .flags = DEV_CTX_IMMORTAL,
     .protocol_id = 0,
@@ -199,6 +210,10 @@ device_t socket_device = {
 void devmgr_set_mdi(mx_handle_t mdi_handle) {
     // MDI VMO handle is passed via via the resource handle
     platform_device.hrsrc = mdi_handle;
+}
+
+void devmgr_set_acpi_resource(mx_handle_t acpi_resource) {
+    acpi_bus_device.hrsrc = acpi_resource;
 }
 
 static void dc_dump_device(device_t* dev, size_t indent) {
@@ -234,6 +249,7 @@ static void dc_dump_state(void) {
     dc_dump_device(&root_device, 0);
     dc_dump_device(&misc_device, 1);
     dc_dump_device(&platform_device, 1);
+    dc_dump_device(&acpi_bus_device, 1);
 }
 
 static void dc_dump_device_props(device_t* dev) {
@@ -293,6 +309,7 @@ static void dc_dump_devprops(void) {
     dc_dump_device_props(&root_device);
     dc_dump_device_props(&misc_device);
     dc_dump_device_props(&platform_device);
+    dc_dump_device_props(&acpi_bus_device);
 }
 
 static void dc_dump_drivers(void) {
@@ -1135,6 +1152,12 @@ static bool is_platform_bus_driver(driver_t* drv) {
     return !strcmp(drv->libname, "/boot/driver/platform-bus.so");
 }
 
+static bool is_acpi_driver(driver_t* drv) {
+    // only our built-in acpi driver should bind as platform bus
+    // so compare library path instead of binding program
+    return !strcmp(drv->libname, "/boot/driver/acpi-bus.so");
+}
+
 void coordinator_new_driver(driver_t* drv, const char* version) {
     if (version[0] == '!') {
         // debugging / development hack
@@ -1184,6 +1207,7 @@ void coordinator(void) {
     devfs_publish(&root_device, &misc_device);
     devfs_publish(&root_device, &socket_device);
     devfs_publish(&root_device, &platform_device);
+    devfs_publish(&root_device, &acpi_bus_device);
 
     enumerate_drivers();
 
@@ -1195,6 +1219,8 @@ void coordinator(void) {
             dc_attempt_bind(drv, &misc_device);
         } else if (is_platform_bus_driver(drv)) {
             dc_attempt_bind(drv, &platform_device);
+        } else if (is_acpi_driver(drv)) {
+            dc_attempt_bind(drv, &acpi_bus_device);
         }
     }
 

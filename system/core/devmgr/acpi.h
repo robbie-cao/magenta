@@ -12,4 +12,3 @@ mx_status_t devhost_init_pcie(void);
 void devhost_acpi_reboot(void);
 void devhost_acpi_poweroff(void);
 void devhost_acpi_ps0(char* arg);
-mx_handle_t devhost_acpi_clone(void);

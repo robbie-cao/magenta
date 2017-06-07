@@ -189,3 +189,5 @@ mx_status_t dc_msg_rpc(mx_handle_t h, dc_msg_t* msg, size_t msglen,
                        dc_status_t* rsp, size_t rsp_len);
 
 void devmgr_set_mdi(mx_handle_t mdi_handle);
+
+void devmgr_set_acpi_resource(mx_handle_t acpi_resource);

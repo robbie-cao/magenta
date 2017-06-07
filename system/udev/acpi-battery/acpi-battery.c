@@ -28,6 +28,8 @@
 #define ACPI_BATTERY_STATE_CHARGING    (1 << 1)
 #define ACPI_BATTERY_STATE_CRITICAL    (1 << 2)
 
+#if 0
+
 typedef struct acpi_battery_device {
     mx_device_t* mxdev;
 
@@ -103,8 +105,10 @@ static int acpi_battery_poll_thread(void* arg) {
     }
     return 0;
 }
+#endif
 
 static mx_status_t acpi_battery_bind(void* ctx, mx_device_t* dev, void** cookie) {
+#if 0
     mx_acpi_protocol_t* acpi;
     if (device_op_get_protocol(dev, MX_PROTOCOL_ACPI, (void**)&acpi)) {
         return ERR_NOT_SUPPORTED;
@@ -143,6 +147,7 @@ static mx_status_t acpi_battery_bind(void* ctx, mx_device_t* dev, void** cookie)
         return status;
     }
 
+#endif
     return NO_ERROR;
 }
 

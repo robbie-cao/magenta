@@ -50,22 +50,10 @@ int main(int argc, char** argv) {
         return 4;
     }
 
-    // TODO(teisenbe): In the future, devmgr should create this and hand it to
-    // us.
-    mx_handle_t acpi_bus_resource;
-    {
-        mx_rrec_t records[1] = { { 0 } };
-        records[0].self.type = MX_RREC_SELF;
-        records[0].self.subtype = MX_RREC_SELF_GENERIC;
-        records[0].self.options = 0;
-        records[0].self.record_count = 1;
-        strncpy(records[0].self.name, "ACPI-BUS", sizeof(records[0].self.name));
-        mx_status = mx_resource_create(root_resource_handle, records, countof(records),
-                                       &acpi_bus_resource);
-        if (mx_status != NO_ERROR) {
-            printf("Failed to create ACPI-BUS resource\n");
-            return 6;
-        }
+    mx_handle_t acpi_bus_resource = mx_get_startup_handle(PA_HND(PA_USER2, 0));
+    if (acpi_bus_resource <= 0) {
+        printf("Failed to find acpi bus resource handle\n");
+        return 1;
     }
 
     mx_status = resource_tree_init(port, acpi_bus_resource);

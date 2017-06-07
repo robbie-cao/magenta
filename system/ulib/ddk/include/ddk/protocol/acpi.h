@@ -11,10 +11,11 @@ __BEGIN_CDECLS;
 
 /**
  * protocol/acpi.h - ACPI protocol definitions
- *
- * FIXME(yky,teisenbe): not the real thing
  */
 
 typedef struct mx_acpi_protocol {
-    mx_handle_t (*clone_handle)(mx_device_t* dev);
+    // TODO(yky) TBD
 } mx_acpi_protocol_t;
+
+#define ACPI_HID_LID_0_3 0x504e5030 // "PNP0"
+#define ACPI_HID_LID_4_7 0x43304400 // "C0D"

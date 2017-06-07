@@ -19,18 +19,46 @@
 
 #include "devmgr.h"
 #include "devhost.h"
+#include "devcoordinator.h"
 
 static acpi_handle_t acpi_root;
 
 mx_status_t devhost_launch_acpisvc(mx_handle_t job_handle) {
     const char* binname = "/boot/bin/acpisvc";
 
+    mx_status_t status;
     mx_handle_t logger = MX_HANDLE_INVALID;
     mx_handle_t root = MX_HANDLE_INVALID;
     mx_handle_t rpc[2] = { MX_HANDLE_INVALID, MX_HANDLE_INVALID };
+    mx_handle_t acpi_bus_rsrc, acpi_bus_rsrc_clone;
     mx_log_create(0, &logger);
     mx_handle_duplicate(get_root_resource(), MX_RIGHT_SAME_RIGHTS, &root);
     mx_channel_create(0, &rpc[0], &rpc[1]);
+    {
+        mx_rrec_t records[1] = { { 0 } };
+        records[0].self.type = MX_RREC_SELF;
+        records[0].self.subtype = MX_RREC_SELF_GENERIC;
+        records[0].self.options = 0;
+        records[0].self.record_count = 1;
+        strncpy(records[0].self.name, "ACPI-BUS", sizeof(records[0].self.name));
+        status = mx_resource_create(root, records, countof(records),
+                                       &acpi_bus_rsrc);
+        if (status != NO_ERROR) {
+            mx_handle_close(rpc[0]);
+            mx_handle_close(rpc[1]);
+            printf("devmgr: failed to create acpi-bus resource\n");
+            return status;
+        }
+        // make a clone to pass to the acpi driver
+        status = mx_handle_duplicate(acpi_bus_rsrc, MX_RIGHT_SAME_RIGHTS, &acpi_bus_rsrc_clone);
+        if (status != NO_ERROR) {
+            mx_handle_close(rpc[0]);
+            mx_handle_close(rpc[1]);
+            mx_handle_close(acpi_bus_rsrc);
+            printf("devmgr: failed to clone acpi-bus resource handle\n");
+            return status;
+        }
+    }
 
     launchpad_t* lp;
     launchpad_create(job_handle, binname, &lp);
@@ -40,16 +68,19 @@ mx_status_t devhost_launch_acpisvc(mx_handle_t job_handle) {
     launchpad_add_handle(lp, logger, PA_HND(PA_MXIO_LOGGER, MXIO_FLAG_USE_FOR_STDIO | 1));
     launchpad_add_handle(lp, root, PA_HND(PA_USER0, 0));
     launchpad_add_handle(lp, rpc[1], PA_HND(PA_USER1, 0));
+    launchpad_add_handle(lp, acpi_bus_rsrc, PA_HND(PA_USER2, 0));
 
     const char* errmsg;
-    mx_status_t status = launchpad_go(lp, NULL, &errmsg);
+    status = launchpad_go(lp, NULL, &errmsg);
     if (status < 0) {
         mx_handle_close(rpc[0]);
+        mx_handle_close(acpi_bus_rsrc_clone);
         printf("devmgr: acpisvc launch failed: %d: %s\n", status, errmsg);
         return status;
     }
 
     acpi_handle_init(&acpi_root, rpc[0]);
+    devmgr_set_acpi_resource(acpi_bus_rsrc_clone);
     return NO_ERROR;
 }
 
@@ -113,8 +144,4 @@ void devhost_acpi_reboot(void) {
 
 void devhost_acpi_ps0(char* arg) {
     acpi_ps0(&acpi_root, arg, strlen(arg));
-}
-
-mx_handle_t devhost_acpi_clone(void) {
-    return acpi_clone_handle(&acpi_root);
 }
