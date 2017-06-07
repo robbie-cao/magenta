@@ -144,8 +144,15 @@ status_t VmObjectPhysical::SetMappingCachePolicy(const uint32_t cache_policy) {
         return ERR_INVALID_ARGS;
     }
 
+    /* if (cache_policy == mapping_cache_flags_) {
+        return NO_ERROR;
+    } */
+
     // If this VMO is mapped already it is not safe to allow its caching policy to change
     if (mapping_list_len_ != 0) {
+        TRACEF("warning: attempting to change the cache policy of mapped vmo %p"
+                " from %u to %u (mapping cnt: %u \n", this, mapping_cache_flags_, cache_policy,
+                mapping_list_len_);
         return ERR_BAD_STATE;
     }
 

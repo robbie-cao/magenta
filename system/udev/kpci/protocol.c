@@ -73,6 +73,7 @@ static mx_status_t pci_map_mmio(mx_device_t* dev,
 // Sanity check the resource enum
 static_assert(PCI_RESOURCE_BAR_0 == 0, "BAR 0's value is not 0");
 static_assert(PCI_RESOURCE_BAR_5 == 5, "BAR 5's value is not 5");
+static_assert(PCI_RESOURCE_CONFIG > PCI_RESOURCE_BAR_5, "resource enough order is invalid");
 
 // TODO(cja): Figure out how to handle passing PIO privileges to other
 // processes in the future when PCI is moved out of the kernel into
@@ -155,11 +156,15 @@ static mx_status_t pci_map_resource(mx_device_t* dev,
         return ERR_WRONG_TYPE;
     }
 
-    // Set the requested cache policy.
-    status = mx_vmo_set_cache_policy(resource.mmio_handle, cache_policy);
-    if (status != NO_ERROR) {
-        mx_handle_close(resource.mmio_handle);
-        return status;
+    // Set the requested cache policy for bars only, ignore for the rest.
+    // TODO(cja): We probably want to add an MX_CACHE_POLICY_SAME_POLICY or
+    // similar to the cache enum to mean 'don't change it'
+    if (res_id <= PCI_RESOURCE_BAR_5) {
+        status = mx_vmo_set_cache_policy(resource.mmio_handle, cache_policy);
+        if (status != NO_ERROR) {
+            mx_handle_close(resource.mmio_handle);
+            return status;
+        }
     }
 
     // Map the config/bar passed in. Mappings require PAGE_SIZE alignment for

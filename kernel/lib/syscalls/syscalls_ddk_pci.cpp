@@ -536,6 +536,9 @@ mx_status_t sys_pci_get_config(mx_handle_t dev_handle, user_ptr<mx_pci_resource_
             return status;
         }
 
+        // Do not allow writing to PCI config space. That remains the domain of
+        // the bus driver.
+        rights &= ~MX_RIGHT_WRITE;
         mmio_handle = HandleOwner(MakeHandle(mxtl::move(dispatcher), rights));
         if (!mmio_handle) {
             return ERR_NO_MEMORY;
