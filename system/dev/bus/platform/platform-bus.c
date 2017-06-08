@@ -110,11 +110,11 @@ static mx_status_t platform_bus_add_mmio(mdi_node_ref_t* node, mx_handle_t paren
     mx_rrec_t records[2] = { { 0 }, { 0 } };
     records[0].self.type = MX_RREC_SELF;
     records[0].self.subtype = MX_RREC_SELF_GENERIC;
-    records[0].self.record_count = 2;
-   records[1].mmio.type = MX_RREC_MMIO;
+    records[0].self.record_count = 1;
+    strlcpy(records[0].self.name, name, sizeof(records[0].self.name));
+    records[1].mmio.type = MX_RREC_MMIO;
     records[1].mmio.phys_base = base;
     records[1].mmio.phys_size = length;
-    strlcpy(records[0].self.name, name, sizeof(records[0].self.name));
     mx_status_t status = mx_resource_create(parent_resource, records, countof(records),
                                    &resource);
     mx_handle_close(resource);
@@ -147,10 +147,10 @@ static mx_status_t platform_bus_add_irq(mdi_node_ref_t* node, mx_handle_t parent
     mx_rrec_t records[2] = { { 0 }, { 0 } };
     records[0].self.type = MX_RREC_SELF;
     records[0].self.subtype = MX_RREC_SELF_GENERIC;
-    records[0].self.record_count = 2;
-   records[1].irq.type = MX_RREC_IRQ;
-    records[1].irq.irq_base = irq;
+    records[0].self.record_count = 1;
     strlcpy(records[0].self.name, name, sizeof(records[0].self.name));
+    records[1].irq.type = MX_RREC_IRQ;
+    records[1].irq.irq_base = irq;
     mx_status_t status = mx_resource_create(parent_resource, records, countof(records),
                                    &resource);
     mx_handle_close(resource);
