@@ -57,6 +57,77 @@ static mx_protocol_device_t platform_dev_proto = {
     .release = platform_dev_release,
 };
 
+static mx_status_t get_resource_handle(mx_handle_t rsrc, uint16_t type, uint32_t index,
+                                       mx_handle_t* out_handle) {
+    mx_rrec_t stack_buf[64];
+    mx_rrec_t* records = stack_buf;
+    size_t actual;
+    size_t avail;
+ 
+    mx_status_t status = mx_object_get_info(rsrc, MX_INFO_RESOURCE_RECORDS, stack_buf,
+                                            sizeof(stack_buf), &actual, &avail);
+    if (status != MX_OK) {
+        printf("find_resource: mx_object_get_info fail %d\n", status);
+        return status;
+    }
+
+    if (avail > actual) {
+        records = malloc(avail * sizeof(mx_rrec_t));
+        if (!records) {
+            return MX_ERR_NO_MEMORY;
+        }
+        status = mx_object_get_info(rsrc, MX_INFO_RESOURCE_RECORDS, records, avail, &actual, NULL);
+        if (status != MX_OK) {
+            printf("find_resource: mx_object_get_info fail %d\n", status);
+            return status;
+        }
+    } 
+
+    mx_rrec_t* rrec = records;
+    mx_rrec_t* end = rrec + actual;
+    mx_status_t result = MX_ERR_NOT_FOUND;
+    uint32_t recs_seen = 0;
+
+    while (result == MX_ERR_NOT_FOUND && rrec < end) {
+        if (rrec->type == type) {
+            if (recs_seen == index) {
+                result = mx_resource_get_handle(rsrc, rrec - records, 0, out_handle);    
+            } else {
+                recs_seen++;
+            }
+        }
+        rrec++;
+    }
+
+    if (records != stack_buf) {
+        free(records);
+    }
+    return result; 
+}
+
+static mx_status_t platform_dev_map_mmio(mx_device_t* device,
+                                            uint32_t index,
+                                            uint32_t cache_policy,
+                                            void** vaddr,
+                                            size_t* size,
+                                            mx_handle_t* out_handle) {
+    platform_dev_t* dev = device->ctx;
+    if (dev->resource == MX_HANDLE_INVALID) {
+        return MX_ERR_BAD_STATE;
+    }
+
+    return -1;
+}
+
+static mx_status_t platform_dev_map_interrupt(mx_device_t* device, uint32_t index, mx_handle_t* out_handle) {
+    platform_dev_t* dev = device->ctx;
+    if (dev->resource == MX_HANDLE_INVALID) {
+        return MX_ERR_BAD_STATE;
+    }
+
+    return -1;
+}
+
 static mx_status_t platform_dev_find_protocol(mx_device_t* dev, uint32_t proto_id,
                                        mx_device_t** out_dev, void** out_proto) {
     platform_dev_t* pdev = dev->ctx;
@@ -77,6 +148,8 @@ static mx_status_t platform_dev_find_protocol(mx_device_t* dev, uint32_t proto_i
 }
 
 static platform_device_protocol_t platform_dev_proto_ops = {
+    .map_mmio = platform_dev_map_mmio,
+    .map_interrupt = platform_dev_map_interrupt,
     .find_protocol = platform_dev_find_protocol,
 };
 
@@ -199,6 +272,59 @@ static mx_status_t platform_bus_create_resource(mx_handle_t parent, const char* 
     return status;
 }
 
+static mx_status_t platform_bus_add_device(mx_device_t* parent, const char* name,
+                                           uint32_t vid, uint32_t pid, uint32_t did,
+                                           mx_handle_t rsrc, bool busdev,
+                                           platform_dev_t** out_dev) {
+    platform_dev_t* dev = calloc(1, sizeof(platform_dev_t));
+    if (!dev) {
+        return MX_ERR_NO_MEMORY;
+    }
+    dev->resource = rsrc;
+
+    mx_device_prop_t props[] = {
+        {BIND_PLATFORM_DEV_VID, 0, vid},
+        {BIND_PLATFORM_DEV_PID, 0, pid},
+        {BIND_PLATFORM_DEV_DID, 0, did},
+    };
+    static_assert(countof(props) == countof(dev->props), "");
+    memcpy(dev->props, props, sizeof(dev->props));
+
+    device_add_args_t args = {
+        .version = DEVICE_ADD_ARGS_VERSION,
+        .name = name,
+        .ctx = dev,
+        .ops = &platform_dev_proto,
+        .proto_id = MX_PROTOCOL_PLATFORM_DEV,
+        .proto_ops = &platform_dev_proto_ops,
+        .props = dev->props,
+        .prop_count = countof(dev->props),
+    };
+
+    char busdev_args[100];
+
+    if (busdev) {
+        snprintf(busdev_args, sizeof(busdev_args), "%s,%u:%u:%u", name, vid, pid, did);
+        args.busdev_args = busdev_args;
+        args.rsrc = rsrc;
+        args.flags = DEVICE_ADD_BUSDEV;
+    } else {
+        dev->resource = rsrc;
+    }
+
+    mx_status_t status = device_add(parent, &args, &dev->mxdev);
+    if (status != MX_OK) {
+        printf("platform_bus_publish_devices: failed to create device for %u:%u:%u\n",
+               vid, pid, did);
+        mx_handle_close(rsrc);
+        free(dev);
+        return status;
+    }
+
+    if (out_dev) *out_dev = dev;
+    return MX_OK;
+}
+
 static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_ref_t* node) {
     mdi_node_ref_t  device_node;
     mdi_each_child(node, &device_node) {
@@ -213,6 +339,8 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
         mdi_node_ref_t  node;
         mdi_node_ref_t  resource_node;
         bool got_resource = false;
+        bool same_devhost = false;
+ 
         mdi_each_child(&device_node, &node) {
             switch (mdi_id(&node)) {
             case MDI_NAME:
@@ -231,6 +359,9 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
                 memcpy(&resource_node, &node, sizeof(resource_node));
                 got_resource = true;
                 break;
+            case MDI_PLATFORM_DEVICE_SAME_DEVHOST:
+                mdi_node_boolean(&node, &same_devhost);
+                break;
             default:
                 break;
             }
@@ -241,49 +372,21 @@ static mx_status_t platform_bus_publish_devices(platform_bus_t* bus, mdi_node_re
             continue;
         }
 
-        platform_dev_t* dev = calloc(1, sizeof(platform_dev_t));
-        if (!dev) {
-            return MX_ERR_NO_MEMORY;
-        }
-        dev->bus = bus;
-
         // create resource for the device
+        mx_handle_t resource = MX_HANDLE_INVALID;
         if (got_resource) {
-            mx_status_t status = platform_bus_create_resource(bus->resource, name, &resource_node, &dev->resource);
+            mx_status_t status = platform_bus_create_resource(bus->resource, name, &resource_node, &resource);
             if (status != MX_OK) {
-                free(dev);
                 return status;
             }
         }
 
-        mx_device_prop_t props[] = {
-            {BIND_PLATFORM_DEV_VID, 0, vid},
-            {BIND_PLATFORM_DEV_PID, 0, pid},
-            {BIND_PLATFORM_DEV_DID, 0, did},
-        };
-        static_assert(countof(props) == countof(dev->props), "");
-        memcpy(dev->props, props, sizeof(dev->props));
-
-        device_add_args_t args = {
-            .version = DEVICE_ADD_ARGS_VERSION,
-            .name = name,
-            .ctx = dev,
-            .ops = &platform_dev_proto,
-            .proto_id = MX_PROTOCOL_PLATFORM_DEV,
-            .proto_ops = &platform_dev_proto_ops,
-            .props = dev->props,
-            .prop_count = countof(dev->props),
-        };
-
-        mx_status_t status = device_add(bus->mxdev, &args, &dev->mxdev);
-        if (status != MX_OK) {
-            printf("platform_bus_publish_devices: failed to create device for %u:%u:%u\n",
-                   vid, pid, did);
-            mx_handle_close(dev->resource);
-            free(dev);
-            return status;
+        platform_dev_t* dev = NULL;
+        mx_status_t status = platform_bus_add_device(bus->mxdev, name, vid, pid, did, resource, !same_devhost, &dev);
+        if (status == MX_OK) {
+            dev->bus = bus;
+            list_add_tail(&bus->children, &dev->node);
         }
-        list_add_tail(&bus->children, &dev->node);
     }
 
     return MX_OK;
@@ -297,7 +400,7 @@ static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cook
     }
 
     platform_bus_t* bus = NULL;
-    void* addr = NULL;
+    void* mdi_addr = NULL;
     size_t size;
     mx_status_t status = mx_vmo_get_size(mdi_handle, &size);
     if (status != MX_OK) {
@@ -305,14 +408,14 @@ static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cook
         goto fail;
     }
     status = mx_vmar_map(mx_vmar_root_self(), 0, mdi_handle, 0, size, MX_VM_FLAG_PERM_READ,
-                         (uintptr_t *)&addr);
+                         (uintptr_t *)&mdi_addr);
     if (status != MX_OK) {
         printf("platform_bus_bind: mx_vmar_map failed %d\n", status);
         goto fail;
     }
 
     mdi_node_ref_t root_node;
-    status = mdi_init(addr, size, &root_node);
+    status = mdi_init(mdi_addr, size, &root_node);
     if (status != MX_OK) {
         printf("platform_bus_bind: mdi_init failed %d\n", status);
         goto fail;
@@ -353,23 +456,39 @@ static mx_status_t platform_bus_bind(void* ctx, mx_device_t* parent, void** cook
         goto fail;
     }
 
-    return platform_bus_publish_devices(bus, &bus_node);
+    status = platform_bus_publish_devices(bus, &bus_node);
+    // don't need MDI any more
+    mx_vmar_unmap(mx_vmar_root_self(), (uintptr_t)mdi_addr, size);
+    mx_handle_close(mdi_handle);
+    return status;
 
 fail:
     if (bus) {
         mx_handle_close(bus->resource);
         free(bus);
     }
-    if (addr) {
-        mx_vmar_unmap(mx_vmar_root_self(), (uintptr_t)addr, size);
+    if (mdi_addr) {
+        mx_vmar_unmap(mx_vmar_root_self(), (uintptr_t)mdi_addr, size);
     }
     mx_handle_close(mdi_handle);
     return status;
 }
 
+static mx_status_t platform_bus_create(void* ctx, mx_device_t* parent, const char* name,
+                                       const char* args, mx_handle_t resource) {
+    uint32_t vid, pid, did;
+    if (sscanf(args, "%u:%u:%u", &vid, &pid, &did) != 3) {
+        mx_handle_close(resource);
+        return MX_ERR_INVALID_ARGS;
+    }
+
+    return platform_bus_add_device(parent, args, vid, pid, did, resource, false, NULL);
+}
+
 static mx_driver_ops_t platform_bus_driver_ops = {
     .version = DRIVER_OPS_VERSION,
     .bind = platform_bus_bind,
+    .create = platform_bus_create,
 };
 
 MAGENTA_DRIVER_BEGIN(platform_bus, platform_bus_driver_ops, "magenta", "0.1", 1)

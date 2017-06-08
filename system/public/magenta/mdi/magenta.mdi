@@ -29,6 +29,8 @@ list    platform.device.resource.mmio     MDI_PLATFORM_DEVICE_MMIO              
 list    platform.device.resource.irq      MDI_PLATFORM_DEVICE_IRQ               206
 // resource.irq has  irq
 
+boolean platform.device.same-devhost      MDI_PLATFORM_DEVICE_SAME_DEVHOST      207
+
 // Kernel Drivers
 
 // ARM PSCI driver

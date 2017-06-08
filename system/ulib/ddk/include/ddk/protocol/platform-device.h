@@ -10,6 +10,15 @@
 __BEGIN_CDECLS;
 
 typedef struct {
+    mx_status_t (*map_mmio)(mx_device_t* dev,
+                            uint32_t index,
+                            uint32_t cache_policy,
+                            void** vaddr,
+                            size_t* size,
+                            mx_handle_t* out_handle);
+
+    mx_status_t (*map_interrupt)(mx_device_t* dev, uint32_t index, mx_handle_t* out_handle);
+
     mx_status_t (*find_protocol)(mx_device_t* dev, uint32_t proto_id,
                                  mx_device_t** out_dev, void** out_proto);
 } platform_device_protocol_t;
