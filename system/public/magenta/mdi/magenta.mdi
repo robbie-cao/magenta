@@ -23,11 +23,11 @@ list    platform.device                   MDI_PLATFORM_DEVICE                   
 uint32  platform.device.vid               MDI_PLATFORM_DEVICE_VID               201
 uint32  platform.device.pid               MDI_PLATFORM_DEVICE_PID               202
 uint32  platform.device.did               MDI_PLATFORM_DEVICE_DID               203
-list    platform.device.resources         MDI_PLATFORM_DEVICE_RESOURCES         204
-list    platform.device.resources.mmio    MDI_PLATFORM_DEVICE_MMIO              205
-// resources.mmio has name, base-phys and length
-list    platform.device.resources.irq     MDI_PLATFORM_DEVICE_IRQ               206
-// resources.irq has name and irq
+list    platform.device.resource          MDI_PLATFORM_DEVICE_RESOURCE          204
+list    platform.device.resource.mmio     MDI_PLATFORM_DEVICE_MMIO              205
+// resource.mmio has base-phys and length
+list    platform.device.resource.irq      MDI_PLATFORM_DEVICE_IRQ               206
+// resource.irq has  irq
 
 // Kernel Drivers
 
