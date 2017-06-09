@@ -116,7 +116,37 @@ static mx_status_t platform_dev_map_mmio(mx_device_t* device,
         return MX_ERR_BAD_STATE;
     }
 
-    return -1;
+    mx_handle_t vmo_handle;
+    mx_status_t status = get_resource_handle(dev->resource, MX_RREC_MMIO, index, &vmo_handle);
+    if (status != MX_OK) {
+        return status;
+    }
+
+    size_t vmo_size;
+    status = mx_vmo_get_size(vmo_handle, &vmo_size);
+    if (status != MX_OK) {
+        goto fail;
+    }
+
+    status = mx_vmo_set_cache_policy(vmo_handle, cache_policy);
+    if (status != MX_OK) {
+        goto fail;
+    }
+
+    status = mx_vmar_map(mx_vmar_root_self(), 0, vmo_handle, 0, vmo_size,
+                         MX_VM_FLAG_PERM_READ | MX_VM_FLAG_PERM_WRITE | MX_VM_FLAG_MAP_RANGE,
+                         (uintptr_t*)vaddr);
+    if (status != MX_OK) {
+        goto fail;
+    }
+
+    *size = vmo_size;
+    *out_handle = vmo_handle;
+    return MX_OK;
+
+fail:
+    mx_handle_close(vmo_handle);
+    return status;
 }
 
 static mx_status_t platform_dev_map_interrupt(mx_device_t* device, uint32_t index, mx_handle_t* out_handle) {
@@ -125,7 +155,7 @@ static mx_status_t platform_dev_map_interrupt(mx_device_t* device, uint32_t inde
         return MX_ERR_BAD_STATE;
     }
 
-    return -1;
+    return get_resource_handle(dev->resource, MX_RREC_IRQ, index, out_handle);
 }
 
 static mx_status_t platform_dev_find_protocol(mx_device_t* dev, uint32_t proto_id,
