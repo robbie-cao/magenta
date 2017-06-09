@@ -67,7 +67,7 @@ static mx_status_t get_resource_handle(mx_handle_t rsrc, uint16_t type, uint32_t
     mx_status_t status = mx_object_get_info(rsrc, MX_INFO_RESOURCE_RECORDS, stack_buf,
                                             sizeof(stack_buf), &actual, &avail);
     if (status != MX_OK) {
-        printf("find_resource: mx_object_get_info fail %d\n", status);
+        printf("get_resource_handle: mx_object_get_info fail %d\n", status);
         return status;
     }
 
@@ -78,7 +78,7 @@ static mx_status_t get_resource_handle(mx_handle_t rsrc, uint16_t type, uint32_t
         }
         status = mx_object_get_info(rsrc, MX_INFO_RESOURCE_RECORDS, records, avail, &actual, NULL);
         if (status != MX_OK) {
-            printf("find_resource: mx_object_get_info fail %d\n", status);
+            printf("get_resource_handle: mx_object_get_info fail %d\n", status);
             return status;
         }
     } 
