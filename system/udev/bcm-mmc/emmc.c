@@ -38,6 +38,7 @@
 
 // Magenta Includes
 #include <mxio/watcher.h>
+#include <magenta/process.h>
 #include <magenta/threads.h>
 #include <magenta/assert.h>
 #include <sync/completion.h>
@@ -589,12 +590,19 @@ static int emmc_bootstrap_thread(void *arg) {
     mx_device_t* dev = ctx->dev;
     free(arg);
 
+    platform_device_protocol_t* proto;
+    st = device_op_get_protocol(dev, MX_PROTOCOL_PLATFORM_DEV, (void**)&proto);
+    if (st != MX_OK) {
+        printf("emmc_bootstrap_thread can't find MX_PROTOCOL_PLATFORM_DEV\n");
+        goto out;
+    }
+
     // Map the Device Registers so that we can perform MMIO against the device.
-    volatile struct emmc_regs* regs;
-    st = mx_mmap_device_memory(get_root_resource(), SDMMC_PAGE_START,
-                               (uint32_t)SDMMC_PAGE_SIZE,
-                               MX_CACHE_POLICY_UNCACHED_DEVICE,
-                               (uintptr_t*)(&regs));
+    volatile struct emmc_regs* regs = NULL;
+    size_t mmio_size;
+    mx_handle_t mmio_handle = MX_HANDLE_INVALID;
+    st = proto->map_mmio(dev, 0, MX_CACHE_POLICY_UNCACHED_DEVICE, (void **)&regs, &mmio_size,
+                         &mmio_handle);
     if (st != MX_OK) {
         xprintf("emmc: failed to mmap device memory, retcode = %d\n", st);
         goto out;
@@ -602,13 +610,9 @@ static int emmc_bootstrap_thread(void *arg) {
 
     // Create an interrupt handle for this device.
     mx_handle_t irq_handle = MX_HANDLE_INVALID;
-    irq_handle = mx_interrupt_create(get_root_resource(),
-                                     INTERRUPT_VC_ARASANSDIO,
-                                     MX_FLAG_REMAP_IRQ);
-    if (irq_handle < 0) {
-        xprintf("emmc: failed to create interrupt handle, handle = %d\n",
-                irq_handle);
-        st = irq_handle;
+    st = proto->map_interrupt(dev, 0, &irq_handle);
+    if (st != MX_OK) {
+        xprintf("emmc: map_interrupt failed: %d\n", st);
         goto out;
     }
 
@@ -758,6 +762,11 @@ static int emmc_bootstrap_thread(void *arg) {
     return 0;
 
 out:
+    if (regs) {
+        mx_vmar_unmap(mx_vmar_root_self(), (uintptr_t)regs, mmio_size);
+    }
+    mx_handle_close(mmio_handle);
+    mx_handle_close(irq_handle);
     if (emmc)
         free(emmc);
 

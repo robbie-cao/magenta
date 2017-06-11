@@ -1709,7 +1709,6 @@ static mx_status_t usb_dwc_bind(void* ctx, mx_device_t* dev, void** cookie) {
     platform_device_protocol_t* proto;
     mx_status_t st = device_op_get_protocol(dev, MX_PROTOCOL_PLATFORM_DEV, (void**)&proto);
     if (st != MX_OK) {
-printf("no MX_PROTOCOL_PLATFORM_DEV\n");
         return st;
     }
 
@@ -1810,8 +1809,10 @@ error_return:
         mx_vmar_unmap(mx_vmar_root_self(), (uintptr_t)regs, mmio_size);
     }
     mx_handle_close(mmio_handle);
-    if (usb_dwc)
+    if (usb_dwc) {
+        mx_handle_close(usb_dwc->irq_handle);
         free(usb_dwc);
+    }
 
     return st;
 }

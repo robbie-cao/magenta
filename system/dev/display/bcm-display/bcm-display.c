@@ -37,7 +37,9 @@ typedef struct {
 typedef struct {
     mx_device_t* mxdev;
     mx_device_t* busdev;
+    mx_device_t* pdev;
     bcm_bus_protocol_t* bus_proto;
+    platform_device_protocol_t* pdev_proto;
     mx_display_info_t disp_info;
     bcm_fb_desc_t fb_desc;
     uint8_t* framebuffer;
@@ -108,17 +110,21 @@ static mx_status_t bcm_vc_get_framebuffer(bcm_display_t* display, bcm_fb_desc_t*
         uintptr_t page_base;
 
         // map framebuffer into userspace
-        mx_mmap_device_memory(
-            get_root_resource(),
-            display->fb_desc.fb_p & 0x3fffffff, display->fb_desc.fb_size,
-            MX_CACHE_POLICY_CACHED, &page_base);
+        size_t mmio_size;
+        mx_handle_t mmio_handle;
+        ret = display->pdev_proto->map_mmio(display->pdev, 0, MX_CACHE_POLICY_CACHED, (void **)&page_base, &mmio_size,
+                         &mmio_handle);
+        if (ret != MX_OK) {
+            printf("bcm_vc_get_framebuffer map_mmio failed %d\n", ret);
+            return ret;
+        }  
         display->framebuffer = (uint8_t*)page_base;
         memset(display->framebuffer, 0x00, display->fb_desc.fb_size);
 
         iotxn_release(txn);
     }
     memcpy(fb_desc, &display->fb_desc, sizeof(bcm_fb_desc_t));
-    return sizeof(bcm_fb_desc_t);
+    return MX_OK;
 }
 
 mx_status_t bcm_display_bind(void* ctx, mx_device_t* parent, void** cookie) {
@@ -134,6 +140,13 @@ mx_status_t bcm_display_bind(void* ctx, mx_device_t* parent, void** cookie) {
         free(display);
         return status;
     }
+    status = device_op_get_protocol(parent, MX_PROTOCOL_PLATFORM_DEV, (void**)&display->pdev_proto);
+    if (status != MX_OK) {
+        printf("bcm_display_bind can't find MX_PROTOCOL_PLATFORM_DEV\n");
+        free(display);
+        return status;
+    }
+    display->pdev = parent;
 
     bcm_fb_desc_t framebuff_descriptor;
 
