@@ -565,12 +565,17 @@ static mx_status_t sdhci_bind(void* ctx, mx_device_t* parent, void** cookie) {
         goto fail;
     }
 
-    dev->base_clock = sdhci.ops->get_base_clock(sdhci.ctx);
+    dev->base_clock = ((dev->regs->caps0 >> 8) & 0xff) * 1000000; /* mhz */
+    if (dev->base_clock == 0) {
+        // try to get controller specific base clock
+        dev->base_clock = sdhci.ops->get_base_clock(sdhci.ctx);
+    }
     if (dev->base_clock == 0) {
         printf("sdhci: base clock is 0!\n");
         status = MX_ERR_INTERNAL;
         goto fail;
     }
+    printf("sdhci: base clock %u\n", dev->base_clock);
     dev->dma_offset = sdhci.ops->get_dma_offset(sdhci.ctx);
     dev->quirks = sdhci.ops->get_quirks(sdhci.ctx);
 

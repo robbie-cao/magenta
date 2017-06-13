@@ -171,7 +171,8 @@ status_t PciDeviceDispatcher::MapInterrupt(int32_t which_irq,
 
     if (!device_->claimed()) return MX_ERR_BAD_STATE;  // Are we not claimed yet?
     if ((which_irq < 0) ||
-        (static_cast<uint32_t>(which_irq) >= irqs_avail_cnt_)) return MX_ERR_INVALID_ARGS;
+        (static_cast<uint32_t>(which_irq) >= irqs_avail_cnt_))
+        return MX_ERR_INVALID_ARGS;
 
     // Attempt to create the dispatcher.  It will take care of things like checking for
     // duplicate registration.

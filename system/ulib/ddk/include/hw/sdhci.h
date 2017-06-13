@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#pragma once
+
 typedef struct sdhci_regs {
     uint32_t arg2;          // 00h
     uint32_t blkcntsiz;     // 04h
