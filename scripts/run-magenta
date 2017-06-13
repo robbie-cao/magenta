@@ -193,6 +193,8 @@ if (( $DISK )); then
         ARGS+=" -device ich9-ahci,id=ahci -device ide-drive,drive=mydisk,bus=ahci.0"
     elif [[ "$DISKTYPE" == "nvme" ]]; then
         ARGS+=" -device nvme,drive=mydisk,serial=magenta"
+    elif [[ "$DISKTYPE" == "sdhci" ]]; then
+        ARGS+=" -device sdhci-pci -device sd-card,drive=mysddisk -drive file=${DISKFILE},format=raw,if=sd,id=mysddisk"
     else
         echo unrecognized disk type \"$DISKTYPE\"
         exit
