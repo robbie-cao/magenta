@@ -72,7 +72,7 @@ static char StateChar(const ProcessDispatcher& pd) {
 }
 
 static const char* ObjectTypeToString(mx_obj_type_t type) {
-    static_assert(MX_OBJ_TYPE_LAST == 25, "need to update switch below");
+    static_assert(MX_OBJ_TYPE_LAST == 26, "need to update switch below");
 
     switch (type) {
         case MX_OBJ_TYPE_PROCESS: return "process";
@@ -97,6 +97,7 @@ static const char* ObjectTypeToString(mx_obj_type_t type) {
         case MX_OBJ_TYPE_GUEST: return "guest";
         case MX_OBJ_TYPE_TIMER: return "timer";
         case MX_OBJ_TYPE_IOMMU: return "iommu";
+        case MX_OBJ_TYPE_BTI: return "bti";
         default: return "???";
     }
 }
