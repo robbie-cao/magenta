@@ -367,7 +367,7 @@ static bool parse_int_value(Tokenizer& tokenizer, Token& token, int precedence,
     return true;
 }
 
-static bool parse_const(Tokenizer& tokenizer, Node& root) {
+static bool parse_const(Tokenizer& tokenizer) {
     Token token;
 
     if (!tokenizer.next_token(token)) {
@@ -383,7 +383,7 @@ static bool parse_const(Tokenizer& tokenizer, Node& root) {
                             token.string_value.c_str());
         return false;
     }
-    std::string& name = token.string_value;
+    std::string name = token.string_value;
     if (const_map.find(name) != const_map.end()) {
         tokenizer.print_err("duplicate constant %s\n", name.c_str());
         return false;
@@ -634,7 +634,7 @@ bool process_file(Tokenizer* container, const char* in_path, Node& root) {
                 return false;
             }
         } else if (token.type == TOKEN_CONST) {
-            if (!parse_const(tokenizer, root)) {
+            if (!parse_const(tokenizer)) {
                 return false;
             }
         } else if (token.type == TOKEN_INCLUDE) {
