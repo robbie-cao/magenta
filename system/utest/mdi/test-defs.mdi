@@ -15,3 +15,22 @@ array[boolean]      test-bool-array         MDI_TEST_BOOL_ARRAY         10014
 list                test-list               MDI_TEST_LIST               10020
 int32               test-list.int           MDI_TEST_LIST_INT           10021
 string              test-list.str           MDI_TEST_LIST_STR           10022
+
+list                uint8-exprs             MDI_TEST_UINT8_EXPRS        10030
+uint8               uint8-exprs.expr        MDI_TEST_UINT8_EXPR         10031
+uint8               uint8-exprs.value       MDI_TEST_UINT8_VALUE        10032
+
+list                int32-exprs             MDI_TEST_INT32_EXPRS        10040
+int32               int32-exprs.expr        MDI_TEST_INT32_EXPR         10041
+int32               int32-exprs.value       MDI_TEST_INT32_VALUE        10042
+
+list                uint32-exprs            MDI_TEST_UINT32_EXPRS       10050
+uint32              uint32-exprs.expr       MDI_TEST_UINT32_EXPR        10051
+uint32              uint32-exprs.value      MDI_TEST_UINT32_VALUE       10052
+
+list                uint64-exprs            MDI_TEST_UINT64_EXPRS       10060
+uint64              uint64-exprs.expr       MDI_TEST_UINT64_EXPR        10061
+uint64              uint64-exprs.value      MDI_TEST_UINT64_VALUE       10062
+
+array[uint32]       uint32-expr-array       MDI_TEST_UINT32_EXPR_ARRAY  10070
+array[uint32]       uint32-expr-values      MDI_TEST_UINT32_EXPR_VALUES 10071

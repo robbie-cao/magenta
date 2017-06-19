@@ -122,7 +122,7 @@ bool array_tests(void) {
     // test boolean array
     EXPECT_EQ(mdi_find_node(&root, MDI_TEST_BOOL_ARRAY, &node), 0,
               "MDI_TEST_BOOL_ARRAY not found");
-    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");;
+    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");
     bool b[4];
     EXPECT_EQ(mdi_array_boolean(&node, 0, &b[0]), 0, "mdi_array_boolean failed");
     EXPECT_EQ(mdi_array_boolean(&node, 1, &b[1]), 0, "mdi_array_boolean failed");
@@ -136,7 +136,7 @@ bool array_tests(void) {
     // test uint8 array
     EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT8_ARRAY, &node), 0,
               "MDI_TEST_UINT8_ARRAY not found");
-    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");;
+    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");
     uint8_t u8[4];
     EXPECT_EQ(mdi_array_uint8(&node, 0, &u8[0]), 0, "mdi_array_uint8 failed");
     EXPECT_EQ(mdi_array_uint8(&node, 1, &u8[1]), 0, "mdi_array_uint8 failed");
@@ -150,7 +150,7 @@ bool array_tests(void) {
     // test int32 array
     EXPECT_EQ(mdi_find_node(&root, MDI_TEST_INT32_ARRAY, &node), 0,
               "MDI_TEST_INT32_ARRAY not found");
-    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");;
+    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");
     int32_t i32[4];
     EXPECT_EQ(mdi_array_int32(&node, 0, &i32[0]), 0, "mdi_array_int32 failed");
     EXPECT_EQ(mdi_array_int32(&node, 1, &i32[1]), 0, "mdi_array_int32 failed");
@@ -164,7 +164,7 @@ bool array_tests(void) {
     // test uint32 array
     EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT32_ARRAY, &node), 0,
               "MDI_TEST_UINT32_ARRAY not found");
-    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");;
+    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");
     uint32_t u32[4];
     EXPECT_EQ(mdi_array_uint32(&node, 0, &u32[0]), 0, "mdi_array_uint32 failed");
     EXPECT_EQ(mdi_array_uint32(&node, 1, &u32[1]), 0, "mdi_array_uint32 failed");
@@ -178,7 +178,7 @@ bool array_tests(void) {
     // test uint64 array
     EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT64_ARRAY, &node), 0,
               "MDI_TEST_UINT64_ARRAY not found");
-    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");;
+    EXPECT_EQ(mdi_array_length(&node), 3u, "mdi_array_length failed");
     uint64_t u64[4];
     EXPECT_EQ(mdi_array_uint64(&node, 0, &u64[0]), 0, "mdi_array_uint64 failed");
     EXPECT_EQ(mdi_array_uint64(&node, 1, &u64[1]), 0, "mdi_array_uint64 failed");
@@ -236,11 +236,94 @@ bool anonymous_list_tests(void) {
     END_TEST;
 }
 
+bool expression_tests(void) {
+    BEGIN_TEST;
+
+    mdi_node_ref_t root, node, child, expr, value;
+
+    EXPECT_EQ(mdi_init(mdi_data, mdi_length, &root), 0, "mdi_init failed");
+
+    // uint8_t expressions
+    EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT8_EXPRS, &node), 0,
+              "MDI_TEST_UINT8_EXPRS not found");
+    mdi_each_child(&node, &child) {
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_UINT8_EXPR, &expr), 0,
+                  "MDI_TEST_UINT8_EXPR not found");
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_UINT8_VALUE, &value), 0,
+                  "MDI_TEST_UINT8_VALUE not found");
+        uint8_t int1, int2;
+        EXPECT_EQ(mdi_node_uint8(&expr, &int1), 0, "mdi_node_uint8 failed");
+        EXPECT_EQ(mdi_node_uint8(&value, &int2), 0, "mdi_node_uint8 failed");
+        EXPECT_EQ(int1, int2, "expression does not match value");
+    }
+
+    // int32_t expressions
+    EXPECT_EQ(mdi_find_node(&root, MDI_TEST_INT32_EXPRS, &node), 0,
+              "MDI_TEST_INT32_EXPRS not found");
+    mdi_each_child(&node, &child) {
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_INT32_EXPR, &expr), 0,
+                  "MDI_TEST_INT32_EXPR not found");
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_INT32_VALUE, &value), 0,
+                  "MDI_TEST_INT32_VALUE not found");
+        int32_t int1, int2;
+        EXPECT_EQ(mdi_node_int32(&expr, &int1), 0, "mdi_node_int32 failed");
+        EXPECT_EQ(mdi_node_int32(&value, &int2), 0, "mdi_node_int32 failed");
+        EXPECT_EQ(int1, int2, "expression does not match value");
+    }
+
+    // uint32_t expressions
+    EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT32_EXPRS, &node), 0,
+              "MDI_TEST_UINT32_EXPRS not found");
+    mdi_each_child(&node, &child) {
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_UINT32_EXPR, &expr), 0,
+                  "MDI_TEST_UINT32_EXPR not found");
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_UINT32_VALUE, &value), 0,
+                  "MDI_TEST_UINT32_VALUE not found");
+        uint32_t int1, int2;
+        EXPECT_EQ(mdi_node_uint32(&expr, &int1), 0, "mdi_node_uint32 failed");
+        EXPECT_EQ(mdi_node_uint32(&value, &int2), 0, "mdi_node_uint32 failed");
+        EXPECT_EQ(int1, int2, "expression does not match value");
+    }
+
+    // uint64_t expressions
+    EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT64_EXPRS, &node), 0,
+              "MDI_TEST_UINT64_EXPRS not found");
+    mdi_each_child(&node, &child) {
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_UINT64_EXPR, &expr), 0,
+                  "MDI_TEST_UINT64_EXPR not found");
+        EXPECT_EQ(mdi_find_node(&child, MDI_TEST_UINT64_VALUE, &value), 0,
+                  "MDI_TEST_UINT64_VALUE not found");
+        uint64_t int1, int2;
+        EXPECT_EQ(mdi_node_uint64(&expr, &int1), 0, "mdi_node_uint64 failed");
+        EXPECT_EQ(mdi_node_uint64(&value, &int2), 0, "mdi_node_uint64 failed");
+        EXPECT_EQ(int1, int2, "expression does not match value");
+    }
+
+    // uint32_t expression array
+    mdi_node_ref_t expr_array, expr_values;
+    EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT32_EXPR_ARRAY, &expr_array), 0,
+              "MDI_TEST_UINT32_EXPR_ARRAY not found");
+    EXPECT_EQ(mdi_find_node(&root, MDI_TEST_UINT32_EXPR_VALUES, &expr_values), 0,
+              "MDI_TEST_UINT32_EXPR_VALUES not found");
+
+    uint32_t length = mdi_array_length(&expr_array);
+    EXPECT_EQ(mdi_array_length(&expr_values), length, "expression arrays not same length");
+    for (uint32_t i = 0; i < length; i++) {
+        uint32_t int1, int2;
+        EXPECT_EQ(mdi_array_uint32(&expr_array, i, &int1), 0, "mdi_array_uint32 failed");
+        EXPECT_EQ(mdi_array_uint32(&expr_values, i, &int2), 0, "mdi_array_uint32 failed");
+        EXPECT_EQ(int1, int2, "expression does not match value");
+    }
+
+    END_TEST;
+}
+
 BEGIN_TEST_CASE(mdi_tests)
 RUN_TEST(load_mdi);
 RUN_TEST(simple_tests);
 RUN_TEST(array_tests);
 RUN_TEST(anonymous_list_tests);
+RUN_TEST(expression_tests);
 END_TEST_CASE(mdi_tests)
 
 int main(int argc, char** argv) {

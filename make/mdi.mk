@@ -13,7 +13,7 @@ MDIGEN := $(BUILDDIR)/tools/mdigen
 
 ifneq ($(MDI_SRCS),)
 # rule for building MDI binary blob
-$(MDI_BIN): $(MDIGEN) $(MDI_SRCS) $(MDI_INCLUDES)
+$(MDI_BIN): $(MDI_SRCS) $(MDI_INCLUDES)
 	$(call BUILDECHO,generating $@)
 	@$(MKDIR)
 	$(NOECHO)$(MDIGEN) -o $@ $(MDI_SRCS)
@@ -25,7 +25,7 @@ endif
 
 ifneq ($(MDI_INCLUDES),)
 # rule for generating MDI header file for C/C++ code
-$(MDI_HEADER): $(MDIGEN) $(MDI_INCLUDES)
+$(MDI_HEADER): $(MDI_INCLUDES)
 	$(call BUILDECHO,generating $@)
 	@$(MKDIR)
 	$(NOECHO)$(MDIGEN) $(MDI_INCLUDES) -h $@

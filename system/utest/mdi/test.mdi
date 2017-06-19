@@ -28,3 +28,39 @@ test-list = {
         str = "three"
     }
 }
+
+uint8-exprs = {
+    {
+        expr = --3
+        value = 3
+    }
+}
+
+int32-exprs = {
+    {
+        expr = --3
+        value = 3
+    }
+}
+
+uint32-exprs = {
+    {
+        expr = --3
+        value = 3
+    }
+}
+
+uint64-exprs = {
+    {
+        expr = --3
+        value = 3
+    }
+}
+
+uint32-expr-array = [
+    3
+]
+
+uint32-expr-values = [
+    3
+]
