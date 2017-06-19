@@ -225,13 +225,14 @@ static bool parse_include(Tokenizer& tokenizer, Node& root) {
 static bool parse_int_value(Tokenizer& tokenizer, Token& token, int precedence,
                             uint64_t& out_value) {
     auto token_type = token.type;
+    uint64_t lvalue;
 
     // parenthesis have highest precedence
     if (token_type == TOKEN_LPAREN) {
         if (!tokenizer.next_token(token)) {
             return false;
         }
-        if (!parse_int_value(tokenizer, token, 0, out_value)) {
+        if (!parse_int_value(tokenizer, token, 0, lvalue)) {
             return false;
         }
         if (!tokenizer.next_token(token)) {
@@ -240,29 +241,19 @@ static bool parse_int_value(Tokenizer& tokenizer, Token& token, int precedence,
         if (token.type != TOKEN_RPAREN) {
             tokenizer.print_err("Expected ')', got \"%s\"\n", token.string_value.c_str());
         }
-        return true;
-    }
-
-    // handle unary operators next
-    // these are parsed right to left
-    if (token_type == TOKEN_PLUS || token_type == TOKEN_MINUS || token_type == TOKEN_NOT) {
+    } else if (token_type == TOKEN_PLUS || token_type == TOKEN_MINUS || token_type == TOKEN_NOT) {
         if (!tokenizer.next_token(token)) {
             return false;
         }
-        if (!parse_int_value(tokenizer, token, 255, out_value)) {
+        if (!parse_int_value(tokenizer, token, 255, lvalue)) {
             return false;
         }
         if (token_type == TOKEN_MINUS) {
-            out_value = (uint64_t)(-(int64_t)out_value);
+            lvalue = (uint64_t)(-(int64_t)lvalue);
         } else if (token_type == TOKEN_NOT) {
-            out_value = ~out_value;
+            lvalue = ~lvalue;
         }
-        return true;
-    }
-
-    uint64_t lvalue;
-
-    if (token_type == TOKEN_IDENTIFIER) {
+    } else if (token_type == TOKEN_IDENTIFIER) {
         auto iter = const_map.find(token.string_value);
         if (iter == const_map.end()) {
             tokenizer.print_err("Unknown identifier \"%s\"\n", token.string_value.c_str());
