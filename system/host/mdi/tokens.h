@@ -22,6 +22,7 @@ enum TokenType {
     TOKEN_ARRAY_START,      // '['
     TOKEN_ARRAY_END,        // ']'
     TOKEN_EQUALS,           // '='
+    TOKEN_COMMA,            // ','
     TOKEN_DOT,              // '.'
     TOKEN_LPAREN,           // '('
     TOKEN_RPAREN,           // ')'

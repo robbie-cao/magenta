@@ -507,8 +507,6 @@ static bool parse_array_node(Tokenizer& tokenizer, Node& node, Token& token, Nod
         if (token.type == TOKEN_EOF) {
             tokenizer.print_err("end of file while parsing list children\n");
             return false;
-        } else if (token.type == TOKEN_ARRAY_END) {
-            break;
         }
 
         Node element_node(element_id, node.get_id_name());
@@ -530,6 +528,17 @@ static bool parse_array_node(Tokenizer& tokenizer, Node& node, Token& token, Nod
         default:
             assert(0);
             break;
+        }
+
+        if (!tokenizer.next_token(token)) {
+            return false;
+        }
+        if (token.type == TOKEN_ARRAY_END) {
+            break;
+        } else if (token.type != TOKEN_COMMA) {
+            tokenizer.print_err("expected comma after array element, got \"%s\"\n",
+                                token.string_value.c_str());
+            return false;
         }
     }
 

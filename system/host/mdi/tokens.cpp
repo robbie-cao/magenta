@@ -122,6 +122,9 @@ void Token::print() {
     case TOKEN_EQUALS:
         printf("TOKEN_EQUALS\n");
         break;
+    case TOKEN_COMMA:
+        printf("TOKEN_COMMA\n");
+        break;
     case TOKEN_DOT:
         printf("TOKEN_DOT\n");
         break;
@@ -481,6 +484,9 @@ bool Tokenizer::next_token(Token& token) {
             break;
         case '=':
             token.type = TOKEN_EQUALS;
+            break;
+        case ',':
+            token.type = TOKEN_COMMA;
             break;
         case '.':
             token.type = TOKEN_DOT;
