@@ -54,6 +54,31 @@ uint8-exprs = {
         expr = (1 + 2) * 3
         value = 9
     }
+    {
+        expr = 1 + 2 - 3
+        value = 0
+    }
+    {
+        expr = 10 - 2 + 4 - 2 * 3
+        value = 6
+    }
+    {
+        expr = 255 + 1
+        // should overflow to 0
+        value = 0
+    }
+    {
+        expr = ~255
+        value = 0
+    }
+    {
+        expr = 5 >> 2
+        value = 1
+    }
+    {
+        expr = 5 << 2
+        value = 5 * 4
+    }
 }
 
 int32-exprs = {

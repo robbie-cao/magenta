@@ -36,6 +36,7 @@ other than the fact that comments beginning with `//` are terminated by the end 
 MDI source files can contain three types of top-level statements:
  * Includes
  * ID Definitions
+ * Constant Definitions
  * Node Definitions
 
 ### Includes
@@ -88,6 +89,10 @@ The purpose of using integer IDs rather than arbitrary string names for nodes is
  1. provide build time error checking when compiling MDI files, and
  2. provide better efficiency when traversing the MDI binary at runtime
 
+### Constant Definitions
+
+
+
 ### Node Definitions
 
 Node definitions define a top-level node in the MDI node tree.
@@ -107,7 +112,7 @@ bar = {
     baz = "Hi there"
 }
 
-boolean-array = [ true false true ]
+boolean-array = [ true, false, true ]
 ```
 
 Compiling this code will generate an MDI binary a root node with three children: `foo`, `bar`
