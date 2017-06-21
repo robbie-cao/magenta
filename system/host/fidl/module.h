@@ -164,22 +164,116 @@ struct UnionInfo {
     std::vector<Member> members;
 };
 
-class TypeShape {
+class TypeShape;
+
+// Represents an out-of-line allocation.
+class Allocation {
 public:
-    constexpr TypeShape(size_t size, size_t alignment) :
+    explicit Allocation(TypeShape typeshape, size_t bound = std::numeric_limits<size_t>::max()) :
         size_(size),
-        alignment_(alignment) {
+        alignment_(alignment),
+        bound_(bound) {
         // Must be a power of 2.
         assert(((alignment_ & (alignment_ - 1)) == 0) && alignment_ != 0);
     }
+    Allocation() : Allocation(0u, 1u) {}
+
+    size_t Size() { return typeshape.Size(); }
+    size_t Alignment() { return typeshape.Alignment(); }
+    const std::vector<Allocation>& Allocations() { return typeshape.Allocations(); }
+    size_t Bound() { return bound_; }
+
+private:
+    TypeShape typeshape;
+    size_t bound_;
+};
+
+// Represents a type in a message. For example, for the following
+//
+//     struct tag {
+//         int32 t;
+//     }
+//     struct vectors_of_vectors {
+//         vector<vector<tag?>:3> tags;
+//         array<handle<channel>>:8 channels;
+//         vector<vector<uint32>>:5 ints;
+//     }
+//
+// the typeshape corresponding to vectors_of_vectors is
+//
+//     TypeShape {
+//         size_ = 64 // 16 + (8 * 4) + 16
+//         alignment_ = 8 // The pointers and sizes of the vectors are 8 byte aligned.
+//         allocations_ = {
+//             Allocation { // The allocation for an unbounded vector of bounded vectors...
+//                 typeshape_ = {
+//                     size_ = 16
+//                     alignment_ = 8
+//                     allocations_ = {
+//                         Allocation { // ...each of which is a pointer to a struct tag.
+//                             typeshape_ = {
+//                                 size_ = 8
+//                                 alignment_ = 8
+//                                 allocations_ = {
+//                                     Allocation {
+//                                         typeshape_ = {
+//                                             size_ = 4
+//                                             alignment_ = 4
+//                                             allocations_ = {
+//                                             }
+//                                         }
+//                                         bound_ = 1
+//                                     }
+//                                 }
+//                             bound_ = 3
+//                             }
+//                         }
+//                     }
+//                 bound_ = SIZE_MAX
+//             }
+//             Allocation { // The allocation for a bounded vector of unbounded vectors...
+//                 typeshape_ = {
+//                     size_ = 16
+//                     alignment_ = 8
+//                     allocations_ = {
+//                         Allocation { // ...each of which is a uint32.
+//                             typeshape_ = {
+//                                 size_ = 4
+//                                 alignment_ = 4
+//                                 allocations_ = {
+//                                 }
+//                             bound_ = SIZE_MAX
+//                             }
+//                         }
+//                     }
+//                 bound_ = 5
+//             }
+//         }
+//     }
+class TypeShape {
+public:
+    TypeShape(size_t size, size_t alignment, std::vector<Allocation> allocation) :
+        size_(size),
+        alignment_(alignment),
+        out_of_line_(std::move(out_of_line)) {
+        // Must be a power of 2.
+        assert(((alignment_ & (alignment_ - 1)) == 0) && alignment_ != 0);
+    }
+    TypeShape(size_t size, size_t alignment) : TypeShape(size, alignment, std::vector<Allocation>()) {}
     TypeShape() : size_(0u), alignment_(1u) {}
 
     size_t Size() { return size_; }
     size_t Alignment() { return alignment_; }
+    const std::vector<Allocation>& Allocations() { return allocations_; }
+
+    void AddAllocation(Allocation allocation) {
+        allocation_.push_back(allocation);
+    }
 
 private:
     size_t size_;
     size_t alignment_;
+    std::vector<Allocation> allocation_;
 };
 
 class Module {

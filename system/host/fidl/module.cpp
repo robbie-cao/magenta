@@ -17,21 +17,34 @@ namespace fidl {
 
 namespace {
 
-constexpr TypeShape kHandleTypeShape = TypeShape(4u, 4u);
-constexpr TypeShape kInt8TypeShape = TypeShape(1u, 1u);
-constexpr TypeShape kInt16TypeShape = TypeShape(2u, 2u);
-constexpr TypeShape kInt32TypeShape = TypeShape(4u, 4u);
-constexpr TypeShape kInt64TypeShape = TypeShape(8u, 8u);
-constexpr TypeShape kUint8TypeShape = TypeShape(1u, 1u);
-constexpr TypeShape kUint16TypeShape = TypeShape(2u, 2u);
-constexpr TypeShape kUint32TypeShape = TypeShape(4u, 4u);
-constexpr TypeShape kUint64TypeShape = TypeShape(8u, 8u);
-constexpr TypeShape kBoolTypeShape = TypeShape(1u, 1u);
-constexpr TypeShape kFloat32TypeShape = TypeShape(4u, 4u);
-constexpr TypeShape kFloat64TypeShape = TypeShape(8u, 8u);
+const TypeShape kHandleTypeShape = TypeShape(4u, 4u);
+const TypeShape kInt8TypeShape = TypeShape(1u, 1u);
+const TypeShape kInt16TypeShape = TypeShape(2u, 2u);
+const TypeShape kInt32TypeShape = TypeShape(4u, 4u);
+const TypeShape kInt64TypeShape = TypeShape(8u, 8u);
+const TypeShape kUint8TypeShape = TypeShape(1u, 1u);
+const TypeShape kUint16TypeShape = TypeShape(2u, 2u);
+const TypeShape kUint32TypeShape = TypeShape(4u, 4u);
+const TypeShape kUint64TypeShape = TypeShape(8u, 8u);
+const TypeShape kBoolTypeShape = TypeShape(1u, 1u);
+const TypeShape kFloat32TypeShape = TypeShape(4u, 4u);
+const TypeShape kFloat64TypeShape = TypeShape(8u, 8u);
+const TypeShape kPointerTypeShape = TypeShape(8u, 8u);
+
+TypeShape StructTypeShape(std::vector<TypeShape> member_typeshapes) {
+    // TODO(kulakowski)
+    return TypeShape(0u, 1u);
+}
 
 TypeShape ArrayTypeShape(TypeShape element, uint64_t count) {
     return TypeShape(element.Size() * count, element.Alignment());
+}
+
+TypeShape VectorTypeShape(TypeShape element, uint64_t count) {
+    auto header_shape = StructTypeShape(std::vector<TypeShape>({kUint64TypeShape, kPointerTypeShape}));
+    auto array_shape = TypeShape(element.Size() * count, element.Alignment());
+    header_shape.AddOutOfLine(array_shape);
+    return header_shape;
 }
 
 TypeShape UnionShape(TypeShape left, TypeShape right) {
