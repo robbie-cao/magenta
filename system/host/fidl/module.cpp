@@ -42,8 +42,8 @@ TypeShape ArrayTypeShape(TypeShape element, uint64_t count) {
 
 TypeShape VectorTypeShape(TypeShape element, uint64_t count) {
     auto header_shape = StructTypeShape(std::vector<TypeShape>({kUint64TypeShape, kPointerTypeShape}));
-    auto array_shape = TypeShape(element.Size() * count, element.Alignment());
-    header_shape.AddOutOfLine(array_shape);
+    auto array_allocation = Allocation(element.Size() * count, element.Alignment());
+    header_shape.AddAllocation(Allocation(array_shape);
     return header_shape;
 }
 

@@ -252,10 +252,10 @@ private:
 //     }
 class TypeShape {
 public:
-    TypeShape(size_t size, size_t alignment, std::vector<Allocation> allocation) :
+    TypeShape(size_t size, size_t alignment, std::vector<Allocation> allocations) :
         size_(size),
         alignment_(alignment),
-        out_of_line_(std::move(out_of_line)) {
+        allocations_(std::move(allocations)) {
         // Must be a power of 2.
         assert(((alignment_ & (alignment_ - 1)) == 0) && alignment_ != 0);
     }
@@ -267,13 +267,13 @@ public:
     const std::vector<Allocation>& Allocations() { return allocations_; }
 
     void AddAllocation(Allocation allocation) {
-        allocation_.push_back(allocation);
+        allocations_.push_back(allocation);
     }
 
 private:
     size_t size_;
     size_t alignment_;
-    std::vector<Allocation> allocation_;
+    std::vector<Allocation> allocations_;
 };
 
 class Module {
