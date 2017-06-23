@@ -14,7 +14,7 @@
 #include "xhci-root-hub.h"
 #include "xhci-util.h"
 
-//#define TRACE 1
+#define TRACE 1
 #include "xhci-debug.h"
 
 // list of devices pending result of enable slot command
@@ -145,9 +145,37 @@ static mx_status_t xhci_address_device(xhci_t* xhci, uint32_t slot_id, uint32_t 
 
     xhci_sync_command_t command;
     xhci_sync_command_init(&command);
+
+printf("BSR TRB_CMD_ADDRESS_DEVICE\n");
+    xhci_post_command(xhci, TRB_CMD_ADDRESS_DEVICE, icc_phys,
+                      (slot_id << TRB_SLOT_ID_START) | TRB_BSR, &command.context);
+    int cc = xhci_sync_command_wait(&command);
+printf("TRB_CMD_ADDRESS_DEVICE cc %d\n", cc);
+
+
+printf("first xhci_get_descriptor\n");
+    usb_device_descriptor_t device_descriptor;
+    status = xhci_get_descriptor(xhci, slot_id, USB_TYPE_STANDARD, USB_DT_DEVICE << 8, 0,
+                                 &device_descriptor, 8);
+printf("first xhci_get_descriptor returned %d\n", status);
+
+
+
+
+
+printf("second TRB_CMD_ADDRESS_DEVICE\n");
+    xhci_sync_command_init(&command);
     xhci_post_command(xhci, TRB_CMD_ADDRESS_DEVICE, icc_phys,
                       (slot_id << TRB_SLOT_ID_START), &command.context);
-    int cc = xhci_sync_command_wait(&command);
+    cc = xhci_sync_command_wait(&command);
+printf("TRB_CMD_ADDRESS_DEVICE cc %d\n", cc);
+
+
+
+
+
+
+
     mtx_unlock(&xhci->input_context_lock);
 
     if (cc == TRB_CC_SUCCESS) {
@@ -244,6 +272,7 @@ static mx_status_t xhci_handle_enumerate_device(xhci_t* xhci, uint32_t hub_addre
         result = xhci_get_descriptor(xhci, slot_id, USB_TYPE_STANDARD, USB_DT_DEVICE << 8, 0,
                                      &device_descriptor, 8);
         if (result == MX_ERR_IO_REFUSED) {
+            printf("xhci_handle_enumerate_device xhci_reset_endpoint\n");
             xhci_reset_endpoint(xhci, slot_id, 0);
         } else {
             break;
