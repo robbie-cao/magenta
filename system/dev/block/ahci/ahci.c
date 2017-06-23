@@ -27,7 +27,7 @@
 #include "sata.h"
 
 // clang-format off
-#define TRACE 0
+#define TRACE 1
 
 #if TRACE
 #define xprintf(fmt...) printf(fmt)
